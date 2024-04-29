@@ -1,35 +1,80 @@
-import { useState } from 'react'
-import reactLogo from './assets/react.svg'
-import viteLogo from '/vite.svg'
-import './App.css'
+import * as tf from "@tensorflow/tfjs";
+import { TRAINING_DATA } from "./mnist";
 
-function App() {
-  const [count, setCount] = useState(0)
+const INPUTS = TRAINING_DATA.inputs;
+const OUTPUTS = TRAINING_DATA.outputs;
 
-  return (
-    <>
-      <div>
-        <a href="https://vitejs.dev" target="_blank">
-          <img src={viteLogo} className="logo" alt="Vite logo" />
-        </a>
-        <a href="https://react.dev" target="_blank">
-          <img src={reactLogo} className="logo react" alt="React logo" />
-        </a>
-      </div>
-      <h1>Vite + React</h1>
-      <div className="card">
-        <button onClick={() => setCount((count) => count + 1)}>
-          count is {count}
-        </button>
-        <p>
-          Edit <code>src/App.tsx</code> and save to test HMR
-        </p>
-      </div>
-      <p className="read-the-docs">
-        Click on the Vite and React logos to learn more
-      </p>
-    </>
-  )
+tf.util.shuffleCombo(INPUTS, OUTPUTS);
+
+const INPUTS_TENSOR = tf.tensor2d(INPUTS);
+
+const OUTPUTS_TENSOR = tf.oneHot(tf.tensor1d(OUTPUTS, "int32"), 10);
+
+const model = tf.sequential();
+
+model.add(
+  tf.layers.dense({
+    inputShape: [784],
+    units: 32,
+    activation: "relu",
+  })
+);
+
+model.add(
+  tf.layers.dense({
+    units: 16,
+    activation: "relu",
+  })
+);
+
+model.add(
+  tf.layers.dense({
+    units: 10,
+    activation: "softmax",
+  })
+);
+
+model.summary();
+
+train();
+
+function train() {
+  model.compile({
+    optimizer: "adam",
+    loss: "categoricalCrossentropy",
+    metrics: ["accuracy"],
+  });
+
+  let result = model.fit(INPUTS_TENSOR, OUTPUTS_TENSOR, {
+    shuffle: true,
+    validationSplit: 0.2,
+    batchSize: 512,
+    epochs: 50,
+    callbacks: {
+      onEpochEnd: async (epoch, logs) => {
+        console.log(
+          `Epoch: ${epoch}, Loss: ${logs?.loss ?? 0}, Accuracy: ${
+            logs?.acc ?? 0
+          }`
+        );
+      },
+    },
+  });
+
+  INPUTS_TENSOR.dispose();
+  OUTPUTS_TENSOR.dispose();
+
+  evaluate();
 }
 
-export default App
+function evaluate() {}
+
+function App() {
+  return (
+    <>
+      <canvas id="canvas" width="28" height="28"></canvas>
+    </>
+  );
+}
+
+export default App;
